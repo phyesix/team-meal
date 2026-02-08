@@ -55,18 +55,21 @@ export interface Database {
                     id: string
                     team_id: string
                     user_id: string
+                    has_car: boolean
                     joined_at: string
                 }
                 Insert: {
                     id?: string
                     team_id: string
                     user_id: string
+                    has_car?: boolean
                     joined_at?: string
                 }
                 Update: {
                     id?: string
                     team_id?: string
                     user_id?: string
+                    has_car?: boolean
                     joined_at?: string
                 }
             }

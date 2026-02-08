@@ -17,9 +17,12 @@ export default function RotationPage({ params }: RotationPageProps) {
     const [isCurrentUser, setIsCurrentUser] = useState(false)
     const [restaurantName, setRestaurantName] = useState('')
     const [mealDate, setMealDate] = useState('')
-    const [selectedDrivers, setSelectedDrivers] = useState<string[]>([])
     const [submitting, setSubmitting] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    const [suggestions, setSuggestions] = useState<any[]>([])
+    const [showSuggestions, setShowSuggestions] = useState(false)
+    const [loadingSuggestions, setLoadingSuggestions] = useState(false)
+    const [userLocation, setUserLocation] = useState<{ lat: number; lon: number } | null>(null)
     const router = useRouter()
 
     useEffect(() => {
@@ -28,6 +31,23 @@ export default function RotationPage({ params }: RotationPageProps) {
             loadRotationData(p.teamId)
         })
     }, [params])
+
+    // Get user location on mount
+    useEffect(() => {
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    setUserLocation({
+                        lat: position.coords.latitude,
+                        lon: position.coords.longitude
+                    })
+                },
+                (error) => {
+                    console.log('Location access denied, using default location')
+                }
+            )
+        }
+    }, [])
 
     const loadRotationData = async (tid: string) => {
         try {
@@ -49,22 +69,40 @@ export default function RotationPage({ params }: RotationPageProps) {
         }
     }
 
-    const handleDriverToggle = (userId: string) => {
-        if (selectedDrivers.includes(userId)) {
-            setSelectedDrivers(selectedDrivers.filter(id => id !== userId))
-        } else {
-            setSelectedDrivers([...selectedDrivers, userId])
+    // Debounced search for restaurant autocomplete
+    useEffect(() => {
+        const searchRestaurants = async () => {
+            if (restaurantName.length < 3) {
+                setSuggestions([])
+                setShowSuggestions(false)
+                return
+            }
+
+            setLoadingSuggestions(true)
+            try {
+                const lat = userLocation?.lat || 41.0082
+                const lon = userLocation?.lon || 28.9784
+                const res = await fetch(
+                    `/api/restaurant-suggestion?lat=${lat}&lon=${lon}&radius=3000&query=${encodeURIComponent(restaurantName)}`
+                )
+                const data = await res.json()
+                setSuggestions(Array.isArray(data) ? data : [])
+                setShowSuggestions(true)
+            } catch (err) {
+                console.error('Failed to fetch suggestions:', err)
+                setSuggestions([])
+            } finally {
+                setLoadingSuggestions(false)
+            }
         }
-    }
+
+        const timeoutId = setTimeout(searchRestaurants, 300)
+        return () => clearTimeout(timeoutId)
+    }, [restaurantName, userLocation])
 
     const handleSubmit = async () => {
         if (!restaurantName.trim()) {
             setError('Restoran adı gerekli')
-            return
-        }
-
-        if (selectedDrivers.length === 0) {
-            setError('En az bir sürücü seçmelisiniz')
             return
         }
 
@@ -82,7 +120,6 @@ export default function RotationPage({ params }: RotationPageProps) {
                     turnId: currentTurn.id,
                     restaurantName,
                     mealDate,
-                    drivers: selectedDrivers,
                 }),
             })
 
@@ -218,13 +255,62 @@ export default function RotationPage({ params }: RotationPageProps) {
                                     📍 Yakındaki Restoranlar
                                 </button>
                             </div>
-                            <input
-                                type="text"
-                                value={restaurantName}
-                                onChange={(e) => setRestaurantName(e.target.value)}
-                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
-                                placeholder="Gidilecek restoran..."
-                            />
+                            <div className="relative">
+                                <input
+                                    type="text"
+                                    value={restaurantName}
+                                    onChange={(e) => {
+                                        setRestaurantName(e.target.value)
+                                    }}
+                                    onFocus={() => {
+                                        if (suggestions.length > 0) {
+                                            setShowSuggestions(true)
+                                        }
+                                    }}
+                                    onBlur={() => {
+                                        // Delay to allow click on suggestion
+                                        setTimeout(() => setShowSuggestions(false), 200)
+                                    }}
+                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+                                    placeholder="Restoran adı yazın (en az 3 karakter)..."
+                                />
+                                {loadingSuggestions && (
+                                    <div className="absolute right-3 top-3">
+                                        <div className="animate-spin h-5 w-5 border-2 border-indigo-500 border-t-transparent rounded-full"></div>
+                                    </div>
+                                )}
+                                {showSuggestions && suggestions.length > 0 && (
+                                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                                        {suggestions.map((restaurant, index) => (
+                                            <button
+                                                key={index}
+                                                type="button"
+                                                onClick={() => {
+                                                    const restaurantText = restaurant.cuisine && restaurant.cuisine !== 'Genel'
+                                                        ? `${restaurant.name} (${restaurant.cuisine})`
+                                                        : restaurant.name
+                                                    setRestaurantName(restaurantText)
+                                                    setShowSuggestions(false)
+                                                }}
+                                                className="w-full text-left px-4 py-3 hover:bg-indigo-50 border-b border-gray-100 last:border-b-0 transition"
+                                            >
+                                                <div className="font-medium text-gray-900">{restaurant.name}</div>
+                                                {restaurant.cuisine && restaurant.cuisine !== 'Genel' && (
+                                                    <div className="text-sm text-gray-600">🍽️ {restaurant.cuisine}</div>
+                                                )}
+                                                {restaurant.address && (
+                                                    <div className="text-xs text-gray-500">📍 {restaurant.address}</div>
+                                                )}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                                {showSuggestions && suggestions.length === 0 && !loadingSuggestions && restaurantName.length >= 3 && (
+                                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg p-4 text-center text-gray-500">
+                                        Yakınınızda restoran bulunamadı
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
                         <div>
@@ -239,30 +325,9 @@ export default function RotationPage({ params }: RotationPageProps) {
                             />
                         </div>
 
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Sürücüler (Araç Kapasitesi: {team?.vehicle_capacity} kişi)
-                            </label>
-                            <div className="space-y-2">
-                                {mealTurns.map((turn: any) => (
-                                    <label
-                                        key={turn.user_id}
-                                        className="flex items-center p-3 bg-white border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50"
-                                    >
-                                        <input
-                                            type="checkbox"
-                                            checked={selectedDrivers.includes(turn.user_id)}
-                                            onChange={() => handleDriverToggle(turn.user_id)}
-                                            className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500"
-                                        />
-                                        <span className="ml-3 text-gray-900">
-                                            {turn.profiles?.full_name || turn.profiles?.email}
-                                        </span>
-                                    </label>
-                                ))}
-                            </div>
-                            <p className="text-sm text-gray-500 mt-2">
-                                Seçilen sürücü sayısı: {selectedDrivers.length}
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                            <p className="text-sm text-blue-800">
+                                🚗 Sürücü otomatik olarak atanacak. Sistem, en az sürüş yapan ve arabası olan üyeyi seçecektir.
                             </p>
                         </div>
 

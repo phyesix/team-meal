@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
+import TeamMembersList from '@/components/TeamMembersList'
 
 export default async function TeamDetailPage({
     params,
@@ -34,11 +35,20 @@ export default async function TeamDetailPage({
         redirect('/teams')
     }
 
+    // Get user profile for admin check
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('is_admin')
+        .eq('id', user?.id || '')
+        .single()
+
     // Get team members
     const { data: members } = await supabase
         .from('team_members')
         .select(`
+      id,
       user_id,
+      has_car,
       joined_at,
       profiles (
         full_name,
@@ -119,21 +129,14 @@ export default async function TeamDetailPage({
             {/* Members list */}
             <div className="bg-white rounded-lg shadow-md p-6 mb-6">
                 <h2 className="text-xl font-bold text-gray-900 mb-4">Takım Üyeleri</h2>
-                <div className="space-y-3">
-                    {members?.map((member: any, index: number) => (
-                        <div key={member.user_id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                            <div>
-                                <p className="font-semibold text-gray-900">
-                                    {member.profiles?.full_name || member.profiles?.email}
-                                </p>
-                                <p className="text-sm text-gray-600">{member.profiles?.email}</p>
-                            </div>
-                            <span className="text-sm text-gray-500">
-                                {new Date(member.joined_at).toLocaleDateString('tr-TR')}
-                            </span>
-                        </div>
-                    ))}
-                </div>
+                <TeamMembersList
+                    members={(members || []).map((m: any) => ({
+                        ...m,
+                        profiles: Array.isArray(m.profiles) ? m.profiles[0] : m.profiles
+                    }))}
+                    currentUserId={user?.id || ''}
+                    isAdmin={profile?.is_admin || false}
+                />
             </div>
 
             {/* Dice rolls status */}

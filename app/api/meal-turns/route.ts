@@ -68,9 +68,9 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { teamId, turnId, restaurantName, mealDate, drivers } = await request.json()
+    const { teamId, turnId, restaurantName, mealDate } = await request.json()
 
-    if (!teamId || !turnId || !restaurantName || !drivers || drivers.length === 0) {
+    if (!teamId || !turnId || !restaurantName) {
         return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
@@ -89,6 +89,45 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Turn already completed' }, { status: 400 })
     }
 
+    // Get team info for vehicle capacity
+    const { data: team } = await supabase
+        .from('teams')
+        .select('vehicle_capacity')
+        .eq('id', teamId)
+        .single()
+
+    const vehicleCapacity = team?.vehicle_capacity || 1
+
+    // Get members who have cars
+    const { data: membersWithCars } = await supabase
+        .from('team_members')
+        .select('user_id')
+        .eq('team_id', teamId)
+        .eq('has_car', true)
+
+    if (!membersWithCars || membersWithCars.length === 0) {
+        return NextResponse.json({ error: 'Takımda arabası olan üye yok' }, { status: 400 })
+    }
+
+    const driverUserIds = membersWithCars.map(m => m.user_id)
+
+    // Count how many times each driver has driven
+    const { data: driveCounts } = await supabase
+        .from('vehicle_assignments')
+        .select('driver_id')
+
+    const driveCountMap: Record<string, number> = {}
+    driverUserIds.forEach(id => { driveCountMap[id] = 0 })
+    driveCounts?.forEach(assignment => {
+        if (driveCountMap[assignment.driver_id] !== undefined) {
+            driveCountMap[assignment.driver_id]++
+        }
+    })
+
+    // Sort drivers by drive count (least first) and select needed number
+    const sortedDrivers = driverUserIds.sort((a, b) => driveCountMap[a] - driveCountMap[b])
+    const selectedDrivers = sortedDrivers.slice(0, vehicleCapacity)
+
     // Update meal turn
     const { error: updateError } = await supabase
         .from('meal_turns')
@@ -104,8 +143,8 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: updateError.message }, { status: 500 })
     }
 
-    // Save vehicle assignments
-    const vehicleAssignments = drivers.map((driverId: string) => ({
+    // Save vehicle assignments with auto-selected drivers
+    const vehicleAssignments = selectedDrivers.map((driverId: string) => ({
         meal_turn_id: turnId,
         driver_id: driverId,
     }))
