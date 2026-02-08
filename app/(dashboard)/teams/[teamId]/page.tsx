@@ -94,49 +94,107 @@ export default async function TeamDetailPage({
                 </Link>
             </div>
 
-            <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-                <h1 className="text-3xl font-bold text-gray-900 mb-4">{team.name}</h1>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                        <span className="text-gray-600">Üye Sayısı:</span>
-                        <span className="ml-2 font-semibold">{members?.length || 0} / {team.max_members}</span>
+            {/* Team Header */}
+            <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl shadow-lg p-8 mb-6 text-white relative overflow-hidden">
+                {/* Subtle accent line */}
+                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-indigo-500 via-blue-500 to-indigo-500"></div>
+
+                <div className="relative">
+                    <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center gap-4">
+                            <div className="w-14 h-14 bg-indigo-500/20 border border-indigo-400/30 rounded-xl flex items-center justify-center text-2xl">
+                                👥
+                            </div>
+                            <div>
+                                <h1 className="text-2xl font-bold">{team.name}</h1>
+                                <p className="text-slate-400 text-sm">Takım Yönetimi</p>
+                            </div>
+                        </div>
                     </div>
-                    <div>
-                        <span className="text-gray-600">Araç Kapasitesi:</span>
-                        <span className="ml-2 font-semibold">{team.vehicle_capacity} kişi</span>
+
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div className="bg-slate-700/50 border border-slate-600/50 rounded-xl p-4">
+                            <div className="text-slate-400 text-xs mb-1">👤 Üyeler</div>
+                            <div className="text-xl font-semibold">{members?.length || 0}<span className="text-slate-500 text-sm">/{team.max_members}</span></div>
+                        </div>
+                        <div className="bg-slate-700/50 border border-slate-600/50 rounded-xl p-4">
+                            <div className="text-slate-400 text-xs mb-1">🚗 Araç</div>
+                            <div className="text-xl font-semibold">{team.vehicle_capacity} <span className="text-slate-500 text-sm">kişi</span></div>
+                        </div>
+                        <div className="bg-slate-700/50 border border-slate-600/50 rounded-xl p-4">
+                            <div className="text-slate-400 text-xs mb-1">🔄 Döngü</div>
+                            <div className="text-xl font-semibold">#{activeCycle?.cycle_number || '-'}</div>
+                        </div>
+                        <div className="bg-slate-700/50 border border-slate-600/50 rounded-xl p-4">
+                            <div className="text-slate-400 text-xs mb-1">🎲 Zar</div>
+                            <div className="text-xl font-semibold">{diceRolls?.length || 0}<span className="text-slate-500 text-sm">/{members?.length || 0}</span></div>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            {/* Navigation tabs */}
-            <div className="flex gap-4 mb-6">
-                <Link
-                    href={`/teams/${teamId}/dice-roll`}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg font-semibold transition"
-                >
-                    🎲 Zar At
-                </Link>
+            {/* Quick Actions */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                {!allMembersRolled && (
+                    <Link
+                        href={`/teams/${teamId}/dice-roll`}
+                        className="group bg-white rounded-xl shadow-md hover:shadow-lg p-5 transition border border-gray-100 hover:border-indigo-200"
+                    >
+                        <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 bg-indigo-100 group-hover:bg-indigo-200 rounded-xl flex items-center justify-center text-2xl transition">
+                                🎲
+                            </div>
+                            <div>
+                                <p className="font-semibold text-gray-900">Zar At</p>
+                                <p className="text-xs text-gray-500">Sıra belirle</p>
+                            </div>
+                        </div>
+                    </Link>
+                )}
                 {allMembersRolled && (
                     <Link
                         href={`/teams/${teamId}/rotation`}
-                        className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-semibold transition"
+                        className="group bg-white rounded-xl shadow-md hover:shadow-lg p-5 transition border border-gray-100 hover:border-green-200"
                     >
-                        🍽️ Rotasyon
+                        <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 bg-green-100 group-hover:bg-green-200 rounded-xl flex items-center justify-center text-2xl transition">
+                                🍽️
+                            </div>
+                            <div>
+                                <p className="font-semibold text-gray-900">Rotasyon</p>
+                                <p className="text-xs text-gray-500">Yemek sırası</p>
+                            </div>
+                        </div>
                     </Link>
                 )}
-            </div>
-
-            {/* Members list */}
-            <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-                <h2 className="text-xl font-bold text-gray-900 mb-4">Takım Üyeleri</h2>
-                <TeamMembersList
-                    members={(members || []).map((m: any) => ({
-                        ...m,
-                        profiles: Array.isArray(m.profiles) ? m.profiles[0] : m.profiles
-                    }))}
-                    currentUserId={user?.id || ''}
-                    isAdmin={profile?.is_admin || false}
-                />
+                <Link
+                    href={`/teams/${teamId}/history`}
+                    className="group bg-white rounded-xl shadow-md hover:shadow-lg p-5 transition border border-gray-100 hover:border-purple-200"
+                >
+                    <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-purple-100 group-hover:bg-purple-200 rounded-xl flex items-center justify-center text-2xl transition">
+                            📋
+                        </div>
+                        <div>
+                            <p className="font-semibold text-gray-900">Geçmiş</p>
+                            <p className="text-xs text-gray-500">Tüm döngüler</p>
+                        </div>
+                    </div>
+                </Link>
+                <Link
+                    href={`/teams/${teamId}/members`}
+                    className="group bg-white rounded-xl shadow-md hover:shadow-lg p-5 transition border border-gray-100 hover:border-blue-200"
+                >
+                    <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-blue-100 group-hover:bg-blue-200 rounded-xl flex items-center justify-center text-2xl transition">
+                            👥
+                        </div>
+                        <div>
+                            <p className="font-semibold text-gray-900">Üyeler</p>
+                            <p className="text-xs text-gray-500">Takım yönetimi</p>
+                        </div>
+                    </div>
+                </Link>
             </div>
 
             {/* Dice rolls status */}

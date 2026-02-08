@@ -21,6 +21,7 @@ export default function RotationPage({ params }: RotationPageProps) {
     const [error, setError] = useState<string | null>(null)
     const [suggestions, setSuggestions] = useState<any[]>([])
     const [showSuggestions, setShowSuggestions] = useState(false)
+    const [hasSelected, setHasSelected] = useState(false)
     const [loadingSuggestions, setLoadingSuggestions] = useState(false)
     const [userLocation, setUserLocation] = useState<{ lat: number; lon: number } | null>(null)
     const router = useRouter()
@@ -126,6 +127,14 @@ export default function RotationPage({ params }: RotationPageProps) {
             if (!response.ok) {
                 const error = await response.json()
                 throw new Error(error.error || 'Kayıt başarısız')
+            }
+
+            const result = await response.json()
+
+            // If cycle completed, redirect to summary page
+            if (result.cycleCompleted) {
+                router.push(`/teams/${teamId}/summary`)
+                return
             }
 
             router.refresh()
@@ -261,6 +270,7 @@ export default function RotationPage({ params }: RotationPageProps) {
                                     value={restaurantName}
                                     onChange={(e) => {
                                         setRestaurantName(e.target.value)
+                                        setHasSelected(false)
                                     }}
                                     onFocus={() => {
                                         if (suggestions.length > 0) {
@@ -290,7 +300,9 @@ export default function RotationPage({ params }: RotationPageProps) {
                                                         ? `${restaurant.name} (${restaurant.cuisine})`
                                                         : restaurant.name
                                                     setRestaurantName(restaurantText)
+                                                    setSuggestions([])
                                                     setShowSuggestions(false)
+                                                    setHasSelected(true)
                                                 }}
                                                 className="w-full text-left px-4 py-3 hover:bg-indigo-50 border-b border-gray-100 last:border-b-0 transition"
                                             >
@@ -305,7 +317,7 @@ export default function RotationPage({ params }: RotationPageProps) {
                                         ))}
                                     </div>
                                 )}
-                                {showSuggestions && suggestions.length === 0 && !loadingSuggestions && restaurantName.length >= 3 && (
+                                {showSuggestions && suggestions.length === 0 && !loadingSuggestions && restaurantName.length >= 3 && !hasSelected && (
                                     <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg p-4 text-center text-gray-500">
                                         Yakınınızda restoran bulunamadı
                                     </div>
